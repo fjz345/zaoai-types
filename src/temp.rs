@@ -14,6 +14,7 @@ pub fn create_temp_file<P: AsRef<Path>>(source: P) -> Result<(TempDir, PathBuf)>
             .ok_or_else(|| anyhow::anyhow!("Invalid source filename"))?,
     );
 
+    fs::File::create(&temp_path)?;
     Ok((temp_dir, temp_path))
 }
 

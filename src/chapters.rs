@@ -5,7 +5,8 @@ use serde::{Deserialize, Serialize};
 use serde_xml_rs::de::from_str;
 use std::ffi::{OsStr, OsString};
 use std::fmt::{Display, Write};
-use std::fs::File;
+use std::fs::{File, remove_file};
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::time::Duration;
@@ -14,19 +15,29 @@ use std::{fs, process::Command};
 use crate::temp::create_temp_file;
 use crate::utils::get_third_party_binary;
 pub fn extract_chapters(mkv_file_path: impl AsRef<Path>) -> anyhow::Result<Option<Chapters>> {
-    let (_temp_dir, temp_file) =
-        create_temp_file("chapters.xml").expect("failed to create temp file");
+    let (temp_dir, temp_file) = create_temp_file("chapters.xml")?;
+
+    println!("Input MKV path: {:?}", mkv_file_path.as_ref());
+    println!("Output XML path: {:?}", temp_file);
+
+    println!(
+        "Extracting chapters \"{}\" to \"{}\"",
+        mkv_file_path.as_ref().display(),
+        temp_file.display()
+    );
 
     let tool_path = get_third_party_binary("mkvextract.exe");
-
     let mut command = Command::new(tool_path);
-    command
-        .arg("chapters")
+    let command = command
         .arg(mkv_file_path.as_ref())
-        .stdout(Stdio::from(fs::File::create(&temp_file)?));
-    let status = command.status()?;
+        .arg("chapters")
+        .arg(&temp_file);
 
+    let output = command.output()?;
+    let status = output.status;
     if !status.success() {
+        println!("stdout\n{:?}", String::from_utf8_lossy(&output.stdout));
+        println!("stderr\n{:?}", String::from_utf8_lossy(&output.stderr));
         anyhow::bail!(
             "mkvextract failed on {} with status: {}",
             mkv_file_path.as_ref().display(),
@@ -36,10 +47,10 @@ pub fn extract_chapters(mkv_file_path: impl AsRef<Path>) -> anyhow::Result<Optio
 
     let metadata = fs::metadata(&temp_file)?;
     if metadata.len() == 0 {
-        return Ok(None); // No chapters found, but not an error
+        return Ok(None); // no chapters found
     }
 
-    let xml_content = std::fs::read_to_string(&temp_file)?;
+    let xml_content = fs::read_to_string(&temp_file)?;
     let chapters = parse_chapter_xml(&xml_content)?;
 
     Ok(Some(chapters))
