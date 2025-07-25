@@ -21,10 +21,13 @@ pub(crate) fn get_third_party_binary(name: &str) -> PathBuf {
 
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct ListDirSplit {
+    pub path_source: PathBuf,
+    pub num_with_chapters: u32,
+    pub num_without_chapters: u32,
+    pub num_skipped: u32,
     pub with_chapters: Vec<EntryKind>,
     pub without_chapters: Vec<EntryKind>,
     pub skipped: Vec<EntryKind>,
-    pub path_source: PathBuf,
 }
 
 impl ListDirSplit {
@@ -82,6 +85,9 @@ pub fn list_dir_with_kind_has_chapters_split(
                             without_chapters: directory_without_chapters,
                             skipped,
                             path_source,
+                            num_with_chapters,
+                            num_without_chapters,
+                            num_skipped,
                         } = dir_split;
                         list_dir_split.with_chapters.extend(directory_with_chapters);
                         list_dir_split

@@ -171,6 +171,9 @@ pub fn collect_list_dir_split(path: impl AsRef<Path>, out_path: impl AsRef<Path>
     let mut list_dir_split =
         list_dir_with_kind_has_chapters_split(&list_of_entries, true).expect("");
     list_dir_split.path_source = path.as_ref().to_path_buf();
+    list_dir_split.num_with_chapters = list_dir_split.with_chapters.len() as u32;
+    list_dir_split.num_without_chapters = list_dir_split.without_chapters.len() as u32;
+    list_dir_split.num_skipped = list_dir_split.skipped.len() as u32;
 
     let entry_kind_vec_string = |vec: &Vec<EntryKind>| -> Vec<String> {
         vec.iter()
@@ -184,11 +187,13 @@ pub fn collect_list_dir_split(path: impl AsRef<Path>, out_path: impl AsRef<Path>
             .collect::<Vec<_>>()
     };
     println!(
-        "With chapters: {:?}",
+        "With chapters[{}]: {:?}",
+        &list_dir_split.num_with_chapters,
         entry_kind_vec_string(&list_dir_split.with_chapters)
     );
     println!(
-        "Without chapters: {:?}",
+        "Without chapters[{}]: {:?}",
+        &list_dir_split.num_without_chapters,
         entry_kind_vec_string(&list_dir_split.without_chapters)
     );
 
