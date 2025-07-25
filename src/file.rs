@@ -25,38 +25,32 @@ impl AsRef<PathBuf> for EntryKind {
 }
 
 pub fn list_dir<P: AsRef<Path>>(path: P, cull_empty_folders: bool) -> Result<Vec<EntryKind>> {
-    let entries = fs::read_dir(path.as_ref()).with_context(|| {
-        format!(
-            "entries failed: Failed to read directory: {}",
-            path.as_ref().display()
-        )
-    })?;
+    let path = path.as_ref();
+    let entries = fs::read_dir(path)
+        .with_context(|| format!("Failed to read directory: {}", path.display()))?;
 
     let mut results = Vec::new();
-
-    for entry in entries {
-        let entry = entry?;
+    for entry_result in entries {
+        let entry = entry_result?;
         let path = entry.path();
-        let file_type = entry.file_type()?;
+        let metadata = entry.metadata()?;
 
-        let kind = if file_type.is_file() {
-            EntryKind::File(path)
-        } else if file_type.is_dir() {
+        if metadata.is_file() {
+            results.push(EntryKind::File(path));
+        } else if metadata.is_dir() {
             if cull_empty_folders {
-                let mut dir_iter = fs::read_dir(&path).with_context(|| {
-                    format!("kind failed: Failed to read directory: {}", path.display())
-                })?;
-
-                if dir_iter.next().is_none() {
+                let is_empty = fs::read_dir(&path)
+                    .with_context(|| format!("Failed to read subdirectory: {}", path.display()))?
+                    .next()
+                    .is_none();
+                if is_empty {
                     continue;
                 }
             }
-            EntryKind::Directory(path)
+            results.push(EntryKind::Directory(path));
         } else {
-            EntryKind::Other(path)
-        };
-
-        results.push(kind);
+            results.push(EntryKind::Other(path));
+        }
     }
 
     Ok(results)
