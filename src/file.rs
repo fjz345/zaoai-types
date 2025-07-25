@@ -1,6 +1,6 @@
 use std::{
     fs,
-    path::{Path, PathBuf},
+    path::{Component, Path, PathBuf},
 };
 
 use anyhow::{Context, Result};
@@ -62,19 +62,14 @@ pub fn list_dir<P: AsRef<Path>>(path: P, cull_empty_folders: bool) -> Result<Vec
     Ok(results)
 }
 
-pub fn get_top_level_dir<'a>(
-    file_path: &'a Path,
-    base_dir: &'a Path,
-) -> anyhow::Result<Option<&'a std::ffi::OsStr>> {
-    // Strip base_dir prefix from file_path, get the relative path
-    let relative = file_path.strip_prefix(base_dir).with_context(|| {
+pub fn relative_path_from_base<'a>(file_path: &'a Path, base_dir: &'a Path) -> Result<&'a Path> {
+    file_path.strip_prefix(base_dir).with_context(|| {
         format!(
             "Base directory '{}' is not a prefix of file path '{}'",
             base_dir.display(),
             file_path.display()
         )
-    })?;
-    Ok(relative.components().next().map(|comp| comp.as_os_str()))
+    })
 }
 
 pub fn relative_after(path: &Path, base: &Path) -> Option<PathBuf> {

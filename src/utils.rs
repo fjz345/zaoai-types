@@ -1,6 +1,6 @@
 use crate::{
     chapters::{Chapters, extract_chapters},
-    file::{self, EntryKind, clear_folder_contents, get_top_level_dir, list_dir},
+    file::{self, EntryKind, clear_folder_contents, list_dir},
     temp::copy_to_temp,
 };
 use anyhow::{Context, Error, Result};
@@ -24,6 +24,7 @@ pub struct ListDirSplit {
     pub with_chapters: Vec<EntryKind>,
     pub without_chapters: Vec<EntryKind>,
     pub skipped: Vec<EntryKind>,
+    pub path_source: PathBuf,
 }
 
 impl ListDirSplit {
@@ -78,7 +79,8 @@ pub fn list_dir_with_kind_has_chapters_split(
                         let ListDirSplit {
                             with_chapters: directory_with_chapters,
                             without_chapters: directory_without_chapters,
-                            skipped: a,
+                            skipped,
+                            path_source,
                         } = dir_split;
                         list_dir_split.with_chapters.extend(directory_with_chapters);
                         list_dir_split

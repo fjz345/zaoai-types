@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use std::io::Write;
 use {
     crate::chapters::{Chapters, extract_chapters},
-    crate::file::{EntryKind, get_top_level_dir},
+    crate::file::{EntryKind, relative_path_from_base},
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -136,10 +136,7 @@ pub fn collect_series_with_chapters(
                         let base_dir = path.as_ref();
                         let output_dir = out_path.as_ref();
 
-                        let top_level_dir =
-                            get_top_level_dir(path_buf, base_dir)?.ok_or_else(|| {
-                                anyhow::anyhow!("File is directly in base_dir without subdirectory")
-                            })?;
+                        let top_level_dir = relative_path_from_base(path_buf, base_dir)?;
 
                         let output_path = output_dir
                             .join(&top_level_dir)
@@ -228,7 +225,9 @@ fn find_next_available_file(mut out_path: PathBuf) -> Result<PathBuf> {
 pub fn collect_list_dir_split(path: impl AsRef<Path>, out_path: impl AsRef<Path>) -> Result<()> {
     let mut out_path = out_path.as_ref();
     let list_of_entries = list_dir(&path, true).expect("");
-    let list_dir_split = list_dir_with_kind_has_chapters_split(&list_of_entries, true).expect("");
+    let mut list_dir_split =
+        list_dir_with_kind_has_chapters_split(&list_of_entries, true).expect("");
+    list_dir_split.path_source = path.as_ref().to_path_buf();
 
     let entry_kind_vec_string = |vec: &Vec<EntryKind>| -> Vec<String> {
         vec.iter()

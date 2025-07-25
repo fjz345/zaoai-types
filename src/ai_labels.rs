@@ -9,10 +9,10 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
+use crate::file::relative_path_from_base;
 use crate::mkv::process_mkv_file;
 use crate::{
     chapters::{Chapters, VideoMetadata},
-    file::get_top_level_dir,
     utils::ListDirSplit,
 };
 
@@ -20,6 +20,7 @@ pub const ZAOAI_LABEL_VERSION: u8 = 1;
 #[derive(Deserialize, Serialize, Debug, Default)]
 pub struct ZaoaiLabel {
     pub path: PathBuf,
+    pub path_source: PathBuf,
     pub metadata: VideoMetadata,
     pub version: u8,
 
@@ -43,6 +44,7 @@ pub fn collect_zaoai_labels(
     list_dir_split: &ListDirSplit,
     out_path: impl AsRef<Path>,
 ) -> Result<()> {
+    let path_source = &list_dir_split.path_source.clone();
     for entry_with_chapters in &list_dir_split.with_chapters {
         let path_buf = entry_with_chapters.as_ref();
         let zaoai_label = if path_buf.is_file() {
@@ -61,6 +63,7 @@ pub fn collect_zaoai_labels(
 
                             let ai_label = ZaoaiLabel {
                                 path: path_buf.clone(),
+                                path_source: path_source.clone(),
                                 metadata: video_metadata,
                                 version: ZAOAI_LABEL_VERSION,
                                 opening_start_time: Some(opening_start_time),
@@ -94,22 +97,19 @@ pub fn collect_zaoai_labels(
         };
 
         if let Some(label) = zaoai_label {
-            let base_dir = path_buf.as_ref();
+            // println!("path_soruce: {}", label.path_source.display());
+            // println!("path_buf: {}", path_buf.display());
 
-            let top_level_dir = get_top_level_dir(&path_buf, base_dir)?.ok_or_else(|| {
-                anyhow::anyhow!("File is directly in base_dir without subdirectory")
-            })?;
+            let relative_path = relative_path_from_base(path_buf, &label.path_source)?;
+            // println!("relative: {}", Path::new(relative_path).display());
 
-            let output_path = out_path
-                .as_ref()
-                .join(&top_level_dir)
-                .join(path_buf.file_name().unwrap())
-                .with_extension("chapters.txt");
+            let output_path = out_path.as_ref().join(relative_path).with_extension("zlbl");
 
             if let Some(parent) = output_path.parent() {
                 std::fs::create_dir_all(parent)?;
             }
 
+            println!("{}", output_path.display());
             if output_path.exists() {
                 eprintln!(
                     "Warning: Output file already exists and will be overwritten: {}",
