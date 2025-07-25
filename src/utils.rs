@@ -49,9 +49,7 @@ pub fn list_dir_with_kind_has_chapters_split(
                 let mut has_chapters = false;
                 if let Some(ext) = path_buf.extension() {
                     if ext == "mkv" {
-                        // Copy only this file to temp
-                        let (_temp_dir, temp_file_path) = copy_to_temp(path_buf)?;
-                        let mkv_file_str = temp_file_path
+                        let mkv_file_str = path_buf
                             .to_str()
                             .ok_or_else(|| anyhow::anyhow!("Invalid temp path string"))?;
 
@@ -99,50 +97,4 @@ pub fn list_dir_with_kind_has_chapters_split(
     }
 
     Ok(list_dir_split)
-}
-
-fn all_files_have_chapters(dir_path: &Path, cull_empty_folders: bool) -> Result<bool> {
-    let entries = list_dir(dir_path, cull_empty_folders)?;
-
-    for entry in entries {
-        match entry {
-            EntryKind::File(ref path) => {
-                // ignore .txt files
-                if path.extension().unwrap_or_default() == "txt" {
-                    continue;
-                }
-                if !has_chapters(path)? {
-                    return Ok(false);
-                }
-            }
-            EntryKind::Directory(ref path) => {
-                if !all_files_have_chapters(path, cull_empty_folders)? {
-                    return Ok(false);
-                }
-            }
-            EntryKind::Other(_) => {
-                // skip or treat as no chapters (your choice)
-            }
-        }
-    }
-
-    Ok(true)
-}
-
-fn has_chapters(path: &Path) -> Result<bool> {
-    if let Some(ext) = path.extension() {
-        if ext == "mkv" {
-            // Copy only this file to temp
-            let (_temp_dir, temp_file_path) = copy_to_temp(path)?;
-            let mkv_file_str = temp_file_path
-                .to_str()
-                .ok_or_else(|| anyhow::anyhow!("Invalid temp path string"))?;
-
-            // Read chapters from local copy
-
-            let chapters = extract_chapters(&mkv_file_str)?;
-            return Ok(!chapters.iter().next().is_none());
-        }
-    }
-    Ok(false)
 }
