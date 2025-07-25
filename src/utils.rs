@@ -41,6 +41,9 @@ pub fn list_dir_with_kind_has_chapters_split(
     list: &[EntryKind],
     cull_empty_folders: bool,
 ) -> Result<ListDirSplit> {
+    // MULTIHREADED VERSION
+    return list_dir_with_kind_has_chapters_split_multithread(list, cull_empty_folders);
+
     let mut list_dir_split = ListDirSplit::default();
 
     for item in list {
@@ -97,4 +100,75 @@ pub fn list_dir_with_kind_has_chapters_split(
     }
 
     Ok(list_dir_split)
+}
+
+pub fn list_dir_with_kind_has_chapters_split_multithread(
+    list: &[EntryKind],
+    cull_empty_folders: bool,
+) -> Result<ListDirSplit> {
+    let mut split = ListDirSplit::default();
+
+    std::thread::scope(|scope| -> std::result::Result<(), anyhow::Error> {
+        let mut handles = vec![];
+
+        for item in list.iter().cloned() {
+            let handle = scope.spawn(move || -> Result<ListDirSplit> {
+                match &item {
+                    EntryKind::File(path_buf) => {
+                        let mut has_chapters = false;
+                        if path_buf.extension().map_or(false, |ext| ext == "mkv") {
+                            if let Some(mkv_file_str) = path_buf.to_str() {
+                                match extract_chapters(mkv_file_str) {
+                                    Ok(chapters) => has_chapters = chapters.iter().next().is_some(),
+                                    Err(e) => eprintln!("Chapter extract failed: {e}"),
+                                }
+                            }
+                        }
+
+                        let mut s = ListDirSplit::default();
+                        if has_chapters {
+                            s.with_chapters.push(item);
+                        } else {
+                            s.without_chapters.push(item);
+                        }
+                        Ok(s)
+                    }
+
+                    EntryKind::Directory(path_buf) => {
+                        let entries =
+                            list_dir(path_buf, cull_empty_folders).with_context(|| {
+                                format!("Failed to read directory: {}", path_buf.display())
+                            })?;
+
+                        // Recursive call — scoped
+                        list_dir_with_kind_has_chapters_split_multithread(
+                            &entries,
+                            cull_empty_folders,
+                        )
+                    }
+
+                    EntryKind::Other(_) => Ok(ListDirSplit::default()),
+                }
+            });
+
+            handles.push(handle);
+        }
+
+        // Merge all thread results
+        for handle in handles {
+            match handle.join().expect("thread panicked") {
+                Ok(local_split) => {
+                    split.with_chapters.extend(local_split.with_chapters);
+                    split.without_chapters.extend(local_split.without_chapters);
+                }
+                Err(e) => {
+                    eprintln!("Worker failed: {e}");
+                }
+            }
+        }
+
+        Ok(())
+    })?;
+
+    Ok(split)
 }
