@@ -4,8 +4,10 @@ use crate::{
     temp::copy_to_temp,
 };
 use anyhow::{Context, Error, Result};
+use serde::{Deserialize, Serialize};
 use std::{
     fs::{self, File},
+    io::Read,
     path::{Path, PathBuf},
 };
 
@@ -17,12 +19,28 @@ pub(crate) fn get_third_party_binary(name: &str) -> PathBuf {
     base.join("third_party\\bin").join(name)
 }
 
+#[derive(Serialize, Deserialize, Debug, Default)]
+pub struct ListDirSplit {
+    pub with_chapters: Vec<EntryKind>,
+    pub without_chapters: Vec<EntryKind>,
+    pub skipped: Vec<EntryKind>,
+}
+
+impl ListDirSplit {
+    pub fn from_file_json(path: impl AsRef<Path>) -> Result<Self> {
+        let mut file = fs::File::open(path)?;
+        let mut json_str = String::new();
+        file.read_to_string(&mut json_str)?;
+        let new = serde_json::from_str::<Self>(&json_str)?;
+        Ok(new)
+    }
+}
+
 pub fn list_dir_with_kind_has_chapters_split(
     list: &[EntryKind],
     cull_empty_folders: bool,
-) -> Result<(Vec<EntryKind>, Vec<EntryKind>)> {
-    let mut with_chapters = Vec::new();
-    let mut without_chapters = Vec::new();
+) -> Result<ListDirSplit> {
+    let mut list_dir_split = ListDirSplit::default();
 
     for item in list {
         match item {
@@ -45,9 +63,9 @@ pub fn list_dir_with_kind_has_chapters_split(
                 }
 
                 if has_chapters {
-                    with_chapters.push(item.clone());
+                    list_dir_split.with_chapters.push(item.clone());
                 } else {
-                    without_chapters.push(item.clone());
+                    list_dir_split.without_chapters.push(item.clone());
                 }
             }
             EntryKind::Directory(path_buf) => {
@@ -56,9 +74,16 @@ pub fn list_dir_with_kind_has_chapters_split(
                 let dir_res =
                     list_dir_with_kind_has_chapters_split(&path_buf_entry_list, cull_empty_folders);
                 match dir_res {
-                    Ok((directory_with_chapters, directory_without_chapters)) => {
-                        with_chapters.extend(directory_with_chapters);
-                        without_chapters.extend(directory_without_chapters);
+                    Ok(dir_split) => {
+                        let ListDirSplit {
+                            with_chapters: directory_with_chapters,
+                            without_chapters: directory_without_chapters,
+                            skipped: a,
+                        } = dir_split;
+                        list_dir_split.with_chapters.extend(directory_with_chapters);
+                        list_dir_split
+                            .without_chapters
+                            .extend(directory_without_chapters);
                     }
                     Err(e) => {
                         println!("{e}")
@@ -71,7 +96,7 @@ pub fn list_dir_with_kind_has_chapters_split(
         }
     }
 
-    Ok((with_chapters, without_chapters))
+    Ok(list_dir_split)
 }
 
 fn all_files_have_chapters(dir_path: &Path, cull_empty_folders: bool) -> Result<bool> {

@@ -4,13 +4,24 @@ use std::{
 };
 
 use anyhow::{Context, Result};
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum EntryKind {
     File(PathBuf),
     Directory(PathBuf),
     #[allow(dead_code)]
     Other(PathBuf), // symlink, device, etc.
+}
+
+impl AsRef<PathBuf> for EntryKind {
+    fn as_ref(&self) -> &PathBuf {
+        match self {
+            EntryKind::File(path_buf)
+            | EntryKind::Directory(path_buf)
+            | EntryKind::Other(path_buf) => return path_buf,
+        }
+    }
 }
 
 pub fn list_dir<P: AsRef<Path>>(path: P, cull_empty_folders: bool) -> Result<Vec<EntryKind>> {

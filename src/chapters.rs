@@ -17,9 +17,6 @@ use crate::utils::get_third_party_binary;
 pub fn extract_chapters(mkv_file_path: impl AsRef<Path>) -> anyhow::Result<Option<Chapters>> {
     let (temp_dir, temp_file) = create_temp_file("chapters.xml")?;
 
-    println!("Input MKV path: {:?}", mkv_file_path.as_ref());
-    println!("Output XML path: {:?}", temp_file);
-
     println!(
         "Extracting chapters \"{}\" to \"{}\"",
         mkv_file_path.as_ref().display(),
@@ -36,6 +33,9 @@ pub fn extract_chapters(mkv_file_path: impl AsRef<Path>) -> anyhow::Result<Optio
     let output = command.output()?;
     let status = output.status;
     if !status.success() {
+        println!("Input MKV path: {:?}", mkv_file_path.as_ref());
+        println!("Output XML path: {:?}", temp_file);
+
         println!("stdout\n{:?}", String::from_utf8_lossy(&output.stdout));
         println!("stderr\n{:?}", String::from_utf8_lossy(&output.stderr));
         anyhow::bail!(
@@ -56,7 +56,7 @@ pub fn extract_chapters(mkv_file_path: impl AsRef<Path>) -> anyhow::Result<Optio
     Ok(Some(chapters))
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct VideoMetadata {
     // Duration info
     #[serde(with = "humantime_serde")]
@@ -80,18 +80,34 @@ pub struct VideoMetadata {
     // Other
     pub container_format: Option<String>, // e.g. "mkv", "mp4"
     pub is_vfr: bool,                     // Variable Frame Rate?
-    pub has_chapters: bool,
+    pub chapters: Vec<ChapterAtom>,
     #[serde(default)]
     pub tags: Vec<String>,
 }
 
-#[derive(Debug, Deserialize, Serialize, Default)]
+impl VideoMetadata {
+    pub fn has_chapters(&self) -> bool {
+        self.chapters.len() > 0
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct Chapters {
     #[serde(rename = "EditionEntry")]
     edition_entry: EditionEntry,
 }
 
+impl Into<Vec<ChapterAtom>> for Chapters {
+    fn into(self) -> Vec<ChapterAtom> {
+        let vec: Vec<ChapterAtom> = self.edition_entry.chapters.to_owned();
+        vec
+    }
+}
+
 impl Chapters {
+    pub fn num_chapters(&self) -> usize {
+        self.edition_entry.chapters.len()
+    }
     pub fn iter(&self) -> impl Iterator<Item = &ChapterAtom> {
         self.edition_entry.chapters.iter()
     }
@@ -136,13 +152,13 @@ impl<'a> IntoIterator for &'a mut Chapters {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Default)]
+#[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct EditionEntry {
     #[serde(rename = "ChapterAtom", default)]
     chapters: Vec<ChapterAtom>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ChapterAtom {
     #[serde(rename = "ChapterTimeStart")]
     pub start_time: String,
@@ -154,7 +170,7 @@ pub struct ChapterAtom {
     pub display: ChapterDisplay,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ChapterDisplay {
     #[serde(rename = "ChapterString")]
     pub title: String,
