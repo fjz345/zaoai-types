@@ -55,37 +55,37 @@ pub fn collect_zaoai_labels(
                 let b = process_mkv_file(&entry_with_chapters);
                 match b {
                     Ok(mkv_metadata) => {
-                        let (op_start, op_end) = mkv_metadata.extract_opening_times();
+                        let (Some(op_start), Some(op_end)) = mkv_metadata.extract_opening_times()
+                        else {
+                            // Same effect as if zaoai_label was None
+                            return Ok(());
+                        };
 
-                        if op_start.is_some() && op_end.is_some() {
-                            let opening_start_time = op_start.unwrap();
-                            let opening_end_time = op_end.unwrap();
+                        let opening_start_time = op_start;
+                        let opening_end_time = op_end;
 
-                            let video_metadata: VideoMetadata = mkv_metadata.into();
-                            let total_secs = video_metadata.duration.as_secs_f64();
+                        let video_metadata: VideoMetadata = mkv_metadata.into();
+                        let total_secs = video_metadata.duration.as_secs_f64();
 
-                            let ai_label = ZaoaiLabel {
-                                path: path_buf.clone(),
-                                path_source: path_source.clone(),
-                                metadata: video_metadata,
-                                version: ZAOAI_LABEL_VERSION,
-                                opening_start_time: Some(opening_start_time),
-                                opening_end_time: Some(opening_end_time),
-                                opening_start_frame: None,
-                                opening_end_frame: None,
-                                // Not sure if it should be div_eclid or div_ceil
-                                opening_start_normalized: Some(
-                                    opening_start_time.as_secs_f64() / total_secs,
-                                ),
-                                opening_end_normalized: Some(
-                                    opening_end_time.as_secs_f64() / total_secs,
-                                ),
-                                ..Default::default()
-                            };
-                            Some(ai_label)
-                        } else {
-                            None
-                        }
+                        let ai_label = ZaoaiLabel {
+                            path: path_buf.clone(),
+                            path_source: path_source.clone(),
+                            metadata: video_metadata,
+                            version: ZAOAI_LABEL_VERSION,
+                            opening_start_time: Some(opening_start_time),
+                            opening_end_time: Some(opening_end_time),
+                            opening_start_frame: None,
+                            opening_end_frame: None,
+                            // Not sure if it should be div_eclid or div_ceil
+                            opening_start_normalized: Some(
+                                opening_start_time.as_secs_f64() / total_secs,
+                            ),
+                            opening_end_normalized: Some(
+                                opening_end_time.as_secs_f64() / total_secs,
+                            ),
+                            ..Default::default()
+                        };
+                        Some(ai_label)
                     }
                     Err(e) => {
                         println!("{e}");
@@ -161,6 +161,7 @@ pub fn collect_zaoai_labels_multithread(
                 };
 
                 let (Some(op_start), Some(op_end)) = mkv_metadata.extract_opening_times() else {
+                    // Same effect as if zaoai_label was None
                     return Ok(());
                 };
 
