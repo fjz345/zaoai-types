@@ -220,10 +220,10 @@ pub fn collect_zaoai_labels_multithread(
     Ok(())
 }
 
-struct ZaoaiLabelsLoader {
-    path_source: PathBuf,
-    len: usize,
-    label_file_paths: Vec<PathBuf>,
+pub struct ZaoaiLabelsLoader {
+    pub path_source: PathBuf,
+    pub len: usize,
+    pub label_file_paths: Vec<PathBuf>,
 }
 
 impl ZaoaiLabelsLoader {
@@ -232,7 +232,7 @@ impl ZaoaiLabelsLoader {
 
         Ok(Self {
             path_source: path.as_ref().to_path_buf(),
-            len: 0,
+            len: list_of_entries.len(),
             label_file_paths: list_of_entries,
         })
     }
