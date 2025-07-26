@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use std::fs;
-use std::io::Write;
+use std::io::{Read, Write};
 
 use std::{
     fs::File,
@@ -10,7 +10,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::file::relative_path_from_base;
+use crate::file::{list_dir, list_dir_all, relative_path_from_base};
 use crate::mkv::process_mkv_file;
 use crate::{
     chapters::{Chapters, VideoMetadata},
@@ -18,7 +18,7 @@ use crate::{
 };
 
 pub const ZAOAI_LABEL_VERSION: u8 = 1;
-#[derive(Deserialize, Serialize, Debug, Default)]
+#[derive(Deserialize, Serialize, Debug, Default, Clone)]
 pub struct ZaoaiLabel {
     pub path: PathBuf,
     pub path_source: PathBuf,
@@ -218,4 +218,35 @@ pub fn collect_zaoai_labels_multithread(
     })?;
 
     Ok(())
+}
+
+struct ZaoaiLabelsLoader {
+    path_source: PathBuf,
+    len: usize,
+    label_file_paths: Vec<PathBuf>,
+}
+
+impl ZaoaiLabelsLoader {
+    pub fn new(path: impl AsRef<Path>) -> Result<Self> {
+        let list_of_entries = list_dir_all(&path, true)?;
+
+        Ok(Self {
+            path_source: path.as_ref().to_path_buf(),
+            len: 0,
+            label_file_paths: list_of_entries,
+        })
+    }
+
+    pub fn load_zaoai_labels(&self) -> Result<Vec<ZaoaiLabel>> {
+        let mut vec = Vec::new();
+        for file_path in &self.label_file_paths {
+            let mut file = std::fs::File::open(file_path)?;
+            let mut contents = String::new();
+            file.read_to_string(&mut contents)?;
+            let zaoai_label: ZaoaiLabel = serde_json::from_str(&contents)?;
+            vec.push(zaoai_label);
+        }
+
+        Ok(vec)
+    }
 }

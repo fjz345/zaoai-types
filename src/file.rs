@@ -56,6 +56,25 @@ pub fn list_dir<P: AsRef<Path>>(path: P, cull_empty_folders: bool) -> Result<Vec
     Ok(results)
 }
 
+pub fn list_dir_all<P: AsRef<Path>>(path: P, cull_empty_folders: bool) -> Result<Vec<PathBuf>> {
+    let list = list_dir(path, cull_empty_folders)?;
+
+    let mut all_file_paths = Vec::new();
+    for kind in list {
+        match kind {
+            EntryKind::File(path_buf) => all_file_paths.push(path_buf),
+            EntryKind::Directory(path_buf) => {
+                let res = list_dir_all(path_buf, cull_empty_folders)?;
+                let collect_files: Vec<PathBuf> = res.iter().map(|f| f.clone()).collect();
+                all_file_paths.extend(collect_files);
+            }
+            EntryKind::Other(_path_buf) => {}
+        }
+    }
+
+    Ok(all_file_paths)
+}
+
 pub fn relative_path_from_base<'a>(file_path: &'a Path, base_dir: &'a Path) -> Result<&'a Path> {
     file_path.strip_prefix(base_dir).with_context(|| {
         format!(
