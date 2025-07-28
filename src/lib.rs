@@ -20,6 +20,8 @@ pub mod ai_labels;
 pub mod chapters;
 pub mod file;
 pub mod mkv;
+pub mod sound;
+pub mod spectrogram;
 pub mod temp;
 pub mod utils;
 

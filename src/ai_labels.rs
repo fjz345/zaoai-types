@@ -39,6 +39,22 @@ impl ZaoaiLabel {
     pub fn has_opening(&self) -> bool {
         self.opening_start_frame.is_some() && self.opening_end_frame.is_some()
     }
+
+    pub fn expected_outputs(&self) -> Vec<f32> {
+        let mut start_normalized = None;
+        let mut end_normalized = None;
+        if let Some(t0) = self.opening_start_normalized {
+            start_normalized = Some(t0);
+        }
+        if let Some(t1) = self.opening_end_normalized {
+            end_normalized = Some(t1);
+        }
+
+        let start = start_normalized.expect("failed to get start normalized");
+        let end = end_normalized.expect("failed to get end normalized");
+
+        vec![start as f32, end as f32]
+    }
 }
 
 pub fn collect_zaoai_labels(
