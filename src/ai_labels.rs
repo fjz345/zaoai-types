@@ -10,8 +10,10 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::file::{list_dir, list_dir_all, relative_path_from_base};
+use crate::file::{EntryKind, list_dir, list_dir_all, relative_path_from_base};
 use crate::mkv::process_mkv_file;
+use crate::sound::S_SPECTOGRAM_NUM_BINS;
+use crate::spectrogram::{generate_spectogram, save_spectrogram};
 use crate::{
     chapters::{Chapters, VideoMetadata},
     utils::ListDirSplit,
@@ -243,8 +245,23 @@ pub struct ZaoaiLabelsLoader {
 }
 
 impl ZaoaiLabelsLoader {
+    pub fn load_single(path: impl AsRef<Path>) -> Result<ZaoaiLabel> {
+        assert_eq!(path.as_ref().is_file(), true);
+        assert_eq!(path.as_ref().extension().unwrap(), "zlbl");
+
+        let label = Self::load_zaoai_label(path)?;
+        Ok(label)
+    }
+
     pub fn new(path: impl AsRef<Path>) -> Result<Self> {
-        let list_of_entries = list_dir_all(&path, true)?;
+        let mut list_of_entries = list_dir_all(&path, true)?;
+
+        // filter zlbl
+        list_of_entries = list_of_entries
+            .iter()
+            .filter(|a| a.is_file() && a.extension().unwrap() == "zlbl")
+            .cloned()
+            .collect();
 
         Ok(Self {
             path_source: path.as_ref().to_path_buf(),
@@ -253,16 +270,76 @@ impl ZaoaiLabelsLoader {
         })
     }
 
+    fn load_zaoai_label(file_path: impl AsRef<Path>) -> Result<ZaoaiLabel> {
+        let mut file = std::fs::File::open(file_path)?;
+        let mut contents = String::new();
+        file.read_to_string(&mut contents)?;
+        let zaoai_label: ZaoaiLabel = serde_json::from_str(&contents)?;
+
+        Ok(zaoai_label)
+    }
+
     pub fn load_zaoai_labels(&self) -> Result<Vec<ZaoaiLabel>> {
         let mut vec = Vec::new();
         for file_path in &self.label_file_paths {
-            let mut file = std::fs::File::open(file_path)?;
-            let mut contents = String::new();
-            file.read_to_string(&mut contents)?;
-            let zaoai_label: ZaoaiLabel = serde_json::from_str(&contents)?;
-            vec.push(zaoai_label);
+            let label = Self::load_zaoai_label(file_path)?;
+            vec.push(label);
         }
 
         Ok(vec)
     }
+}
+
+pub fn generate_zaoai_label_spectrograms(
+    list: &Vec<EntryKind>,
+    spectrogram_file_extension: &String,
+    spectrogram_dim: [usize; 2],
+) -> Result<()> {
+    for entry in list {
+        match entry {
+            EntryKind::File(path_buf) => {
+                if path_buf.extension().unwrap() == "zlbl" {
+                    assert_eq!(path_buf.is_file(), true);
+
+                    // Load zaoai_label
+                    let zaoai_label = ZaoaiLabelsLoader::load_single(path_buf)?;
+
+                    let spectrogram = generate_spectogram(&zaoai_label.path, S_SPECTOGRAM_NUM_BINS);
+                    match spectrogram {
+                        Ok(specto) => {
+                            let mut spectrogram_save_path = path_buf.clone();
+                            let success =
+                                spectrogram_save_path.set_extension(spectrogram_file_extension);
+                            assert!(success);
+
+                            save_spectrogram(
+                                &specto,
+                                spectrogram_dim[0],
+                                spectrogram_dim[1],
+                                &spectrogram_save_path,
+                            )?;
+
+                            log::info!("Saved spectrogram: {}", spectrogram_save_path.display());
+                        }
+                        Err(e) => {
+                            println!("{:?}", e);
+                        }
+                    }
+                }
+            }
+            EntryKind::Directory(path_buf) => {
+                let dir_list_dir = list_dir(path_buf, true)?;
+                generate_zaoai_label_spectrograms(
+                    &dir_list_dir,
+                    &spectrogram_file_extension,
+                    spectrogram_dim,
+                )?;
+            }
+            EntryKind::Other(_path_buf) => {
+                println!("EntryKind::Other not supported")
+            }
+        }
+    }
+
+    Ok(())
 }
