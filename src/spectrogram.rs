@@ -58,15 +58,15 @@ pub fn load_spectrogram(
 
     let mut spectrogram = create_spectrogram_unsafe(buffer, width, height);
 
-    let mut test_path = path.as_ref().to_path_buf();
-    test_path.set_extension("png");
-    spectrogram.to_png(
-        &test_path,
-        sonogram::FrequencyScale::Log,
-        &mut ColourGradient::black_white_theme(),
-        width,
-        height,
-    )?;
+    // let mut test_path = path.as_ref().to_path_buf();
+    // test_path.set_extension("png");
+    // spectrogram.to_png(
+    //     &test_path,
+    //     sonogram::FrequencyScale::Log,
+    //     &mut ColourGradient::black_white_theme(),
+    //     width,
+    //     height,
+    // )?;
 
     *out_width = width;
     *out_height = height;

@@ -25,6 +25,8 @@ pub mod spectrogram;
 pub mod temp;
 pub mod utils;
 
+pub use sonogram::FrequencyScale;
+
 use std::{path::PathBuf, time::Duration};
 
 use serde::{Deserialize, Serialize};

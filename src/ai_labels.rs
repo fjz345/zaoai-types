@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use sonogram::Spectrogram;
 use std::fs;
 use std::io::{Read, Write};
 
@@ -342,4 +343,10 @@ pub fn generate_zaoai_label_spectrograms(
     }
 
     Ok(())
+}
+
+pub struct AnimeDataPoint {
+    pub path: PathBuf,
+    pub spectogram: Spectrogram,
+    pub expected_outputs: Vec<f32>,
 }
