@@ -59,17 +59,17 @@ pub fn decode_samples_only_from_file(path: &Path) -> (Vec<f32>, u32) {
         Some(v) => n_frames = v,
         None => log::info!("n_frames failed"),
     }
-    let mut time_base: TimeBase = TimeBase::default();
-    match track.codec_params.time_base {
-        Some(v) => time_base = v,
-        None => log::info!("time_base failed"),
-    }
+    // let mut time_base: TimeBase = TimeBase::default();
+    // match track.codec_params.time_base {
+    //     Some(v) => time_base = v,
+    //     None => log::info!("time_base failed"),
+    // }
 
     log::info!("[4/6] Creating Decoder for Track {}", track_id);
     let dec_opts: DecoderOptions = Default::default();
     let decoder_result = symphonia::default::get_codecs().make(&track.codec_params, &dec_opts);
     match &decoder_result {
-        Ok(v) => (),
+        Ok(_v) => (),
         Err(v) => panic!(
             "Codex Error: {} Codex was: {:?}",
             v, track.codec_params.codec
@@ -160,7 +160,7 @@ pub fn decode_samples_from_file(path: &Path, read_metadata: bool) -> (Vec<f32>, 
     let dec_opts: DecoderOptions = Default::default();
     let decoder_result = symphonia::default::get_codecs().make(&track.codec_params, &dec_opts);
     match &decoder_result {
-        Ok(v) => (),
+        Ok(_v) => (),
         Err(v) => panic!(
             "Codex Error: {} Codex was: {:?}",
             v, track.codec_params.codec

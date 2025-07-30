@@ -16,10 +16,7 @@ use crate::file::{EntryKind, list_dir, list_dir_all, relative_path_from_base};
 use crate::mkv::process_mkv_file;
 use crate::sound::S_SPECTOGRAM_NUM_BINS;
 use crate::spectrogram::{generate_spectogram, save_spectrogram};
-use crate::{
-    chapters::{Chapters, VideoMetadata},
-    utils::ListDirSplit,
-};
+use crate::{chapters::VideoMetadata, utils::ListDirSplit};
 
 pub const ZAOAI_LABEL_VERSION: u8 = 1;
 #[derive(Deserialize, Serialize, Debug, Default, Clone)]
@@ -67,6 +64,7 @@ pub fn collect_zaoai_labels(
 ) -> Result<()> {
     return collect_zaoai_labels_multithread(list_dir_split, out_path);
 
+    #[allow(unreachable_code)]
     let path_source = &list_dir_split.path_source.clone();
     for entry_with_chapters in &list_dir_split.with_chapters {
         let path_buf = entry_with_chapters.as_ref();
@@ -303,6 +301,7 @@ pub fn generate_zaoai_label_spectrograms(
         spectrogram_dim,
     );
 
+    #[allow(unreachable_code)]
     for entry in list {
         match entry {
             EntryKind::File(path_buf) => {

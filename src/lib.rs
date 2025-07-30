@@ -27,11 +27,11 @@ pub mod utils;
 
 pub use sonogram::FrequencyScale;
 
-use std::{path::PathBuf, time::Duration};
+use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use crate::chapters::{Chapters, VideoMetadata};
+use crate::chapters::Chapters;
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct MkvMetadata {

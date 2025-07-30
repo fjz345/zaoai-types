@@ -1,17 +1,14 @@
 use crate::{
-    chapters::{Chapters, extract_chapters},
-    file::{self, EntryKind, clear_folder_contents, list_dir},
-    temp::copy_to_temp,
+    chapters::extract_chapters,
+    file::{EntryKind, list_dir},
 };
-use anyhow::{Context, Error, Result};
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::{
-    fs::{self, File},
+    fs::{self},
     io::Read,
     path::{Path, PathBuf},
 };
-
-use std::io::Write;
 
 pub(crate) fn get_third_party_binary(name: &str) -> PathBuf {
     // CARGO_MANIFEST_DIR will be the zaohelper/ path even when used from zaoai
@@ -47,6 +44,7 @@ pub fn list_dir_with_kind_has_chapters_split(
     // MULTIHREADED VERSION
     return list_dir_with_kind_has_chapters_split_multithread(list, cull_empty_folders);
 
+    #[allow(unreachable_code)]
     let mut list_dir_split = ListDirSplit::default();
 
     for item in list {
@@ -80,6 +78,7 @@ pub fn list_dir_with_kind_has_chapters_split(
                     list_dir_with_kind_has_chapters_split(&path_buf_entry_list, cull_empty_folders);
                 match dir_res {
                     Ok(dir_split) => {
+                        #[allow(unused_variables)]
                         let ListDirSplit {
                             with_chapters: directory_with_chapters,
                             without_chapters: directory_without_chapters,

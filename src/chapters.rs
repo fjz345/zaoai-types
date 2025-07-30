@@ -1,21 +1,18 @@
 #![allow(dead_code)]
 
-use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use serde_xml_rs::de::from_str;
-use std::ffi::{OsStr, OsString};
-use std::fmt::{Display, Write};
-use std::fs::{File, remove_file};
-use std::io::Read;
-use std::path::{Path, PathBuf};
-use std::process::Stdio;
+use std::ffi::OsString;
+use std::fmt::Write;
+use std::fs::File;
+use std::path::Path;
 use std::time::Duration;
 use std::{fs, process::Command};
 
 use crate::temp::create_temp_file;
 use crate::utils::get_third_party_binary;
 pub fn extract_chapters(mkv_file_path: impl AsRef<Path>) -> anyhow::Result<Option<Chapters>> {
-    let (temp_dir, temp_file) = create_temp_file("chapters.xml")?;
+    let (_temp_dir, temp_file) = create_temp_file("chapters.xml")?;
 
     println!(
         "Extracting chapters \"{}\" to \"{}\"",
@@ -187,7 +184,7 @@ fn chapters_to_xml(chapters: &Chapters) -> anyhow::Result<String> {
 }
 
 pub fn add_chapter_to_mkv(mkv_file: &str, timestamp: &str, title: &str) -> anyhow::Result<()> {
-    let mut chapters = extract_chapters(mkv_file)?;
+    let chapters = extract_chapters(mkv_file)?;
     if chapters.is_none() {
         println!("No chapters to add to mkv");
         return Ok(());

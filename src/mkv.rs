@@ -1,23 +1,18 @@
 use std::{
-    fs::File,
     path::{Path, PathBuf},
     time::Duration,
 };
 
 use crate::{
     chapters::{ChapterAtom, VideoMetadata},
-    file::{self, clear_folder_contents, list_dir},
+    file::list_dir,
     utils::list_dir_with_kind_has_chapters_split,
 };
-use anyhow::Error;
 use anyhow::Result;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::io::Write;
-use {
-    crate::chapters::{Chapters, extract_chapters},
-    crate::file::{EntryKind, relative_path_from_base},
-};
+use {crate::chapters::extract_chapters, crate::file::EntryKind};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MkvMetadata {
@@ -166,7 +161,7 @@ fn find_next_available_file(mut out_path: PathBuf) -> Result<PathBuf> {
 }
 
 pub fn collect_list_dir_split(path: impl AsRef<Path>, out_path: impl AsRef<Path>) -> Result<()> {
-    let mut out_path = out_path.as_ref();
+    let out_path = out_path.as_ref();
     let list_of_entries = list_dir(&path, true).expect("");
     let mut list_dir_split =
         list_dir_with_kind_has_chapters_split(&list_of_entries, true).expect("");

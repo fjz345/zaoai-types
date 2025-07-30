@@ -1,13 +1,13 @@
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context, Result};
 use std::{
     fs::File,
-    io::{Read, Write},
+    io::Write,
     path::{Path, PathBuf},
 };
 
-use sonogram::{ColourGradient, SonogramError, SpecCompute, SpecOptionsBuilder, Spectrogram};
+use sonogram::{SonogramError, SpecOptionsBuilder, Spectrogram};
 
-use crate::sound::{decode_samples_from_file, decode_samples_only_from_file};
+use crate::sound::decode_samples_only_from_file;
 
 pub const SPECTOGRAM_WIDTH: usize = 512;
 pub const SPECTOGRAM_HEIGHT: usize = 512;
@@ -56,7 +56,7 @@ pub fn load_spectrogram(
     let (width, height, buffer): (usize, usize, Vec<f32>) =
         bincode::decode_from_slice(&bytes, BINCODE_CONFIG).map(|(v, _)| v)?;
 
-    let mut spectrogram = create_spectrogram_unsafe(buffer, width, height);
+    let spectrogram = create_spectrogram_unsafe(buffer, width, height);
 
     // let mut test_path = path.as_ref().to_path_buf();
     // test_path.set_extension("png");
@@ -74,6 +74,7 @@ pub fn load_spectrogram(
 }
 
 pub fn create_spectrogram_unsafe(spec: Vec<f32>, width: usize, height: usize) -> Spectrogram {
+    #[allow(dead_code)]
     struct SpectrogramRepr {
         spec: Vec<f32>,
         width: usize,
