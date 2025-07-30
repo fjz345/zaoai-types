@@ -12,7 +12,98 @@ use symphonia::core::probe::Hint;
 use symphonia::core::units::TimeBase;
 
 // returns a array with samples and the sample rate
-pub fn decode_samples_from_file(path: &Path) -> (Vec<f32>, u32) {
+pub fn decode_samples_only_from_file(path: &Path) -> (Vec<f32>, u32) {
+    log::info!("###############################");
+    log::info!(
+        "[0/6] Start fetching samples for <{}>",
+        &path.to_string_lossy()
+    );
+
+    let src = File::open(&path).expect("failed to open media");
+
+    log::info!("[1/6] Creating MediaSourceStream");
+    let mss = MediaSourceStream::new(Box::new(src), Default::default());
+
+    let mut hint = Hint::new();
+    hint.with_extension("mp3");
+
+    let meta_opts: MetadataOptions = Default::default();
+    let fmt_opts: FormatOptions = Default::default();
+
+    log::info!("[2/6] Creating ProbeResult");
+    let probed = symphonia::default::get_probe()
+        .format(&hint, mss, &fmt_opts, &meta_opts)
+        .expect("unsupported format");
+
+    // Get the instantiated format reader.
+    let mut format = probed.format;
+
+    log::info!("[3/6] Finding Track");
+    // Find the first audio track with a known (decodeable) codec.
+    let track = format
+        .tracks()
+        .iter()
+        .find(|t| t.codec_params.codec != CODEC_TYPE_NULL)
+        .expect("no supported audio tracks");
+
+    // Store the track identifier, it will be used to filter packets.
+    let track_id = track.id;
+
+    let mut sample_rate: u32 = 0;
+    match track.codec_params.sample_rate {
+        Some(v) => sample_rate = v,
+        None => log::info!("sample_rate failed"),
+    }
+    let mut n_frames: u64 = 0;
+    match track.codec_params.n_frames {
+        Some(v) => n_frames = v,
+        None => log::info!("n_frames failed"),
+    }
+    let mut time_base: TimeBase = TimeBase::default();
+    match track.codec_params.time_base {
+        Some(v) => time_base = v,
+        None => log::info!("time_base failed"),
+    }
+
+    log::info!("[4/6] Creating Decoder for Track {}", track_id);
+    let dec_opts: DecoderOptions = Default::default();
+    let decoder_result = symphonia::default::get_codecs().make(&track.codec_params, &dec_opts);
+    match &decoder_result {
+        Ok(v) => (),
+        Err(v) => panic!(
+            "Codex Error: {} Codex was: {:?}",
+            v, track.codec_params.codec
+        ),
+    }
+
+    // The decode loop.
+    log::info!("[5/6] Decoding...");
+    let mut ret_samples = Vec::with_capacity(n_frames as usize);
+    let mut decoder = decoder_result.unwrap();
+    while let Ok(packet) = format.next_packet() {
+        if packet.track_id() != track_id {
+            continue;
+        }
+
+        if let Ok(decoded) = decoder.decode(&packet) {
+            if let AudioBufferRef::F32(buf) = decoded {
+                ret_samples.extend_from_slice(buf.chan(0));
+            } else {
+                unimplemented!("Non-f32 sample format not supported");
+            }
+        }
+    }
+
+    log::info!(
+        "[6/6] Finished fetching samples for <{}>",
+        &path.to_string_lossy(),
+    );
+
+    (ret_samples, sample_rate)
+}
+
+// returns a array with samples and the sample rate
+pub fn decode_samples_from_file(path: &Path, read_metadata: bool) -> (Vec<f32>, u32) {
     log::info!("###############################");
     log::info!(
         "[0/6] Start fetching samples for <{}>",
@@ -135,27 +226,29 @@ pub fn decode_samples_from_file(path: &Path) -> (Vec<f32>, u32) {
         }
 
         // Consume any new metadata that has been read since the last packet.
-        while !format.metadata().is_latest() {
-            // Pop the old head of the metadata queue.
-            let _metadata = format.metadata().pop();
+        if read_metadata {
+            while !format.metadata().is_latest() {
+                // Pop the old head of the metadata queue.
+                let _metadata = format.metadata().pop();
 
-            let md: MetadataRevision = _metadata.expect("MetadataRevision Failed");
+                let md: MetadataRevision = _metadata.expect("MetadataRevision Failed");
 
-            for tag in md.tags() {
-                log::info!("Key: {}, Value: {}", tag.key, tag.value);
-            }
-
-            for vendordata in md.vendor_data() {
-                log::info!("ident: {}, data: {}", vendordata.ident, vendordata.data[0]);
-            }
-
-            for visual in md.visuals() {
-                for tag in visual.clone().tags {
+                for tag in md.tags() {
                     log::info!("Key: {}, Value: {}", tag.key, tag.value);
                 }
-            }
 
-            // Consume the new metadata at the head of the metadata queue.
+                for vendordata in md.vendor_data() {
+                    log::info!("ident: {}, data: {}", vendordata.ident, vendordata.data[0]);
+                }
+
+                for visual in md.visuals() {
+                    for tag in visual.clone().tags {
+                        log::info!("Key: {}, Value: {}", tag.key, tag.value);
+                    }
+                }
+
+                // Consume the new metadata at the head of the metadata queue.
+            }
         }
 
         // If the packet does not belong to the selected track, skip over it.

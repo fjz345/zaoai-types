@@ -1,7 +1,8 @@
 use anyhow::{Context, Result};
 use sonogram::Spectrogram;
-use std::fs;
 use std::io::{Read, Write};
+use std::sync::Arc;
+use std::{fs, thread};
 
 use std::{
     fs::File,
@@ -296,6 +297,12 @@ pub fn generate_zaoai_label_spectrograms(
     spectrogram_file_extension: &String,
     spectrogram_dim: [usize; 2],
 ) -> Result<()> {
+    return generate_zaoai_label_spectrograms_multithread(
+        list,
+        spectrogram_file_extension,
+        spectrogram_dim,
+    );
+
     for entry in list {
         match entry {
             EntryKind::File(path_buf) => {
@@ -343,6 +350,87 @@ pub fn generate_zaoai_label_spectrograms(
     }
 
     Ok(())
+}
+
+pub fn generate_zaoai_label_spectrograms_multithread(
+    list: &[EntryKind],
+    spectrogram_file_extension: &String,
+    spectrogram_dim: [usize; 2],
+) -> Result<()> {
+    let extension_arc = Arc::new(spectrogram_file_extension.clone());
+
+    thread::scope(|scope| {
+        let mut handles = vec![];
+
+        for entry in list {
+            let spectrogram_file_extension = Arc::clone(&extension_arc);
+            match entry {
+                EntryKind::File(path_buf) => {
+                    let path_buf = path_buf.clone();
+                    let dim = spectrogram_dim;
+
+                    let handle = scope.spawn(move || {
+                        if path_buf.extension().unwrap_or_default() == "zlbl" && path_buf.is_file()
+                        {
+                            match ZaoaiLabelsLoader::load_single(&path_buf) {
+                                Ok(zaoai_label) => {
+                                    match generate_spectogram(
+                                        &zaoai_label.path,
+                                        S_SPECTOGRAM_NUM_BINS,
+                                    ) {
+                                        Ok(specto) => {
+                                            let mut save_path = path_buf.clone();
+                                            let success = save_path
+                                                .set_extension(&*spectrogram_file_extension);
+                                            assert!(success);
+                                            save_spectrogram(&specto, dim[0], dim[1], &save_path)?;
+                                            log::info!(
+                                                "Saved spectrogram: {}",
+                                                save_path.display()
+                                            );
+                                        }
+                                        Err(e) => {
+                                            eprintln!("Spectrogram error: {:?}", e);
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    eprintln!("Label load error: {:?}", e);
+                                }
+                            }
+                        }
+                        Ok::<(), anyhow::Error>(())
+                    });
+                    handles.push(handle);
+                }
+
+                EntryKind::Directory(path_buf) => {
+                    let path_buf = path_buf.clone();
+                    let dim = spectrogram_dim;
+
+                    let handle = scope.spawn(move || {
+                        let dir_list = list_dir(&path_buf, true)?;
+                        generate_zaoai_label_spectrograms(
+                            &dir_list,
+                            &spectrogram_file_extension,
+                            dim,
+                        )
+                    });
+                    handles.push(handle);
+                }
+
+                EntryKind::Other(_) => {
+                    eprintln!("EntryKind::Other not supported");
+                }
+            }
+        }
+
+        for handle in handles {
+            handle.join().unwrap()?;
+        }
+
+        Ok(())
+    })
 }
 
 pub struct AnimeDataPoint {
