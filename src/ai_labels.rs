@@ -15,8 +15,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::file::{EntryKind, list_dir, list_dir_all, relative_path_from_base};
 use crate::mkv::process_mkv_file;
-use crate::sound::S_SPECTOGRAM_NUM_BINS;
-use crate::spectrogram::{generate_spectogram, save_spectrogram};
+use crate::sound::S_SPECTROGRAM_NUM_BINS;
+use crate::spectrogram::{generate_spectrogram, save_spectrogram};
 use crate::{chapters::VideoMetadata, utils::ListDirSplit};
 
 pub const ZAOAI_LABEL_VERSION: u8 = 1;
@@ -313,7 +313,8 @@ pub fn generate_zaoai_label_spectrograms(
                     // Load zaoai_label
                     let zaoai_label = ZaoaiLabelsLoader::load_single(path_buf)?;
 
-                    let spectrogram = generate_spectogram(&zaoai_label.path, S_SPECTOGRAM_NUM_BINS);
+                    let spectrogram =
+                        generate_spectrogram(&zaoai_label.path, S_SPECTROGRAM_NUM_BINS);
                     match spectrogram {
                         Ok(specto) => {
                             let mut spectrogram_save_path = path_buf.clone();
@@ -386,9 +387,9 @@ pub fn generate_zaoai_label_spectrograms_multithread(
                         {
                             match ZaoaiLabelsLoader::load_single(&path_buf) {
                                 Ok(zaoai_label) => {
-                                    match generate_spectogram(
+                                    match generate_spectrogram(
                                         &zaoai_label.path,
-                                        S_SPECTOGRAM_NUM_BINS,
+                                        S_SPECTROGRAM_NUM_BINS,
                                     ) {
                                         Ok(specto) => {
                                             let mut save_path = path_buf.clone();
@@ -455,6 +456,6 @@ pub fn generate_zaoai_label_spectrograms_multithread(
 
 pub struct AnimeDataPoint {
     pub path: PathBuf,
-    pub spectogram: Spectrogram,
+    pub spectrogram: Spectrogram,
     pub expected_outputs: Vec<f32>,
 }

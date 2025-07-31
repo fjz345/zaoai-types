@@ -506,7 +506,7 @@ pub fn decode_samples_from_file(path: &Path, read_metadata: bool) -> Result<(Vec
 }
 
 use sonogram::*;
-pub static S_SPECTOGRAM_NUM_BINS: usize = 2048;
+pub static S_SPECTROGRAM_NUM_BINS: usize = 2048;
 pub fn save_spectrograph_as_png(
     path: &PathBuf,
     data: &Vec<f32>,
@@ -522,7 +522,7 @@ pub fn save_spectrograph_as_png(
         path.to_string_lossy()
     );
 
-    let mut spectrobuilder = SpecOptionsBuilder::new(S_SPECTOGRAM_NUM_BINS)
+    let mut spectrobuilder = SpecOptionsBuilder::new(S_SPECTROGRAM_NUM_BINS)
         .load_data_from_memory_f32(data.clone(), sample_rate)
         .build()
         .unwrap();

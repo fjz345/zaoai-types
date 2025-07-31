@@ -12,29 +12,29 @@ use crate::sound::{
     decode_samples_only_from_file,
 };
 
-pub const SPECTOGRAM_WIDTH: usize = 512;
-pub const SPECTOGRAM_HEIGHT: usize = 512;
-pub fn generate_spectogram(path: &PathBuf, num_spectogram_bins: usize) -> Result<Spectrogram> {
+pub const SPECTROGRAM_WIDTH: usize = 512;
+pub const SPECTROGRAM_HEIGHT: usize = 512;
+pub fn generate_spectrogram(path: &PathBuf, num_spectrogram_bins: usize) -> Result<Spectrogram> {
     let (samples, sample_rate) = decode_audio_with_ffmpeg_f32(&path.to_str().unwrap())?;
 
-    let mut spectrobuilder = SpecOptionsBuilder::new(num_spectogram_bins)
+    let mut spectrobuilder = SpecOptionsBuilder::new(num_spectrogram_bins)
         .load_data_from_memory_f32(samples, sample_rate)
         .build()
         .map_err(|e| anyhow::anyhow!("failed to build spectrogram: {:?}", e))?;
 
-    let spectogram = spectrobuilder.compute();
+    let spectrogram = spectrobuilder.compute();
 
-    Ok(spectogram)
+    Ok(spectrogram)
 }
 
 const BINCODE_CONFIG: bincode::config::Configuration = bincode::config::standard();
 pub fn save_spectrogram(
-    spectogram: &Spectrogram,
+    spectrogram: &Spectrogram,
     width: usize,
     height: usize,
     path: impl AsRef<Path>,
 ) -> Result<()> {
-    let spectrogram_buffer = spectogram.to_buffer(sonogram::FrequencyScale::Linear, width, height);
+    let spectrogram_buffer = spectrogram.to_buffer(sonogram::FrequencyScale::Linear, width, height);
     let data = (width, height, spectrogram_buffer);
     let bytes = bincode::encode_to_vec(data, BINCODE_CONFIG)?;
 
@@ -60,15 +60,15 @@ pub fn load_spectrogram(
     #[allow(unused_mut)]
     let mut spectrogram = create_spectrogram_unsafe(buffer, width, height);
 
-    // let mut test_path = path.as_ref().to_path_buf();
-    // test_path.set_extension("png");
-    // spectrogram.to_png(
-    //     &test_path,
-    //     sonogram::FrequencyScale::Log,
-    //     &mut sonogram::ColourGradient::black_white_theme(),
-    //     width,
-    //     height,
-    // )?;
+    let mut test_path = path.as_ref().to_path_buf();
+    test_path.set_extension("png");
+    spectrogram.to_png(
+        &test_path,
+        sonogram::FrequencyScale::Log,
+        &mut sonogram::ColourGradient::black_white_theme(),
+        width,
+        height,
+    )?;
 
     *out_width = width;
     *out_height = height;
