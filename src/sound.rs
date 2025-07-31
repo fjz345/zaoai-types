@@ -1,6 +1,8 @@
 use std::fs::File;
 use std::path::{Path, PathBuf};
 
+use anyhow::Context;
+use anyhow::Result;
 //use symphonia::core::sample;
 use symphonia::core::audio::{AudioBufferRef, Signal};
 use symphonia::core::codecs::{CODEC_TYPE_NULL, DecoderOptions};
@@ -12,28 +14,26 @@ use symphonia::core::probe::Hint;
 use symphonia::core::units::TimeBase;
 
 // returns a array with samples and the sample rate
-pub fn decode_samples_only_from_file(path: &Path) -> (Vec<f32>, u32) {
+pub fn decode_samples_only_from_file(path: &Path) -> Result<(Vec<f32>, u32)> {
     log::info!("###############################");
     log::info!(
         "[0/6] Start fetching samples for <{}>",
         &path.to_string_lossy()
     );
 
-    let src = File::open(&path).expect("failed to open media");
+    let src = File::open(&path).with_context(|| format!("Failed to open: {}", path.display()))?;
 
     log::info!("[1/6] Creating MediaSourceStream");
     let mss = MediaSourceStream::new(Box::new(src), Default::default());
 
     let mut hint = Hint::new();
-    hint.with_extension("mp3");
+    hint.with_extension("mkv");
 
     let meta_opts: MetadataOptions = Default::default();
     let fmt_opts: FormatOptions = Default::default();
 
     log::info!("[2/6] Creating ProbeResult");
-    let probed = symphonia::default::get_probe()
-        .format(&hint, mss, &fmt_opts, &meta_opts)
-        .expect("unsupported format");
+    let probed = symphonia::default::get_probe().format(&hint, mss, &fmt_opts, &meta_opts)?;
 
     // Get the instantiated format reader.
     let mut format = probed.format;
@@ -44,7 +44,7 @@ pub fn decode_samples_only_from_file(path: &Path) -> (Vec<f32>, u32) {
         .tracks()
         .iter()
         .find(|t| t.codec_params.codec != CODEC_TYPE_NULL)
-        .expect("no supported audio tracks");
+        .with_context(|| "Could not find track")?;
 
     // Store the track identifier, it will be used to filter packets.
     let track_id = track.id;
@@ -67,19 +67,11 @@ pub fn decode_samples_only_from_file(path: &Path) -> (Vec<f32>, u32) {
 
     log::info!("[4/6] Creating Decoder for Track {}", track_id);
     let dec_opts: DecoderOptions = Default::default();
-    let decoder_result = symphonia::default::get_codecs().make(&track.codec_params, &dec_opts);
-    match &decoder_result {
-        Ok(_v) => (),
-        Err(v) => panic!(
-            "Codex Error: {} Codex was: {:?}",
-            v, track.codec_params.codec
-        ),
-    }
+    let mut decoder = symphonia::default::get_codecs().make(&track.codec_params, &dec_opts)?;
 
     // The decode loop.
     log::info!("[5/6] Decoding...");
     let mut ret_samples = Vec::with_capacity(n_frames as usize);
-    let mut decoder = decoder_result.unwrap();
     while let Ok(packet) = format.next_packet() {
         if packet.track_id() != track_id {
             continue;
@@ -89,7 +81,7 @@ pub fn decode_samples_only_from_file(path: &Path) -> (Vec<f32>, u32) {
             if let AudioBufferRef::F32(buf) = decoded {
                 ret_samples.extend_from_slice(buf.chan(0));
             } else {
-                unimplemented!("Non-f32 sample format not supported");
+                anyhow::bail!("Non-f32 sample format not supported");
             }
         }
     }
@@ -99,32 +91,30 @@ pub fn decode_samples_only_from_file(path: &Path) -> (Vec<f32>, u32) {
         &path.to_string_lossy(),
     );
 
-    (ret_samples, sample_rate)
+    Ok((ret_samples, sample_rate))
 }
 
 // returns a array with samples and the sample rate
-pub fn decode_samples_from_file(path: &Path, read_metadata: bool) -> (Vec<f32>, u32) {
+pub fn decode_samples_from_file(path: &Path, read_metadata: bool) -> Result<(Vec<f32>, u32)> {
     log::info!("###############################");
     log::info!(
         "[0/6] Start fetching samples for <{}>",
         &path.to_string_lossy()
     );
 
-    let src = File::open(&path).expect("failed to open media");
+    let src = File::open(&path)?;
 
     log::info!("[1/6] Creating MediaSourceStream");
     let mss = MediaSourceStream::new(Box::new(src), Default::default());
 
     let mut hint = Hint::new();
-    hint.with_extension("mp3");
+    hint.with_extension("mkv");
 
     let meta_opts: MetadataOptions = Default::default();
     let fmt_opts: FormatOptions = Default::default();
 
     log::info!("[2/6] Creating ProbeResult");
-    let probed = symphonia::default::get_probe()
-        .format(&hint, mss, &fmt_opts, &meta_opts)
-        .expect("unsupported format");
+    let probed = symphonia::default::get_probe().format(&hint, mss, &fmt_opts, &meta_opts)?;
 
     // Get the instantiated format reader.
     let mut format = probed.format;
@@ -135,7 +125,7 @@ pub fn decode_samples_from_file(path: &Path, read_metadata: bool) -> (Vec<f32>, 
         .tracks()
         .iter()
         .find(|t| t.codec_params.codec != CODEC_TYPE_NULL)
-        .expect("no supported audio tracks");
+        .with_context(|| "Could not find track")?;
 
     // Store the track identifier, it will be used to filter packets.
     let track_id = track.id;
@@ -158,14 +148,7 @@ pub fn decode_samples_from_file(path: &Path, read_metadata: bool) -> (Vec<f32>, 
 
     log::info!("[4/6] Creating Decoder for Track {}", track_id);
     let dec_opts: DecoderOptions = Default::default();
-    let decoder_result = symphonia::default::get_codecs().make(&track.codec_params, &dec_opts);
-    match &decoder_result {
-        Ok(_v) => (),
-        Err(v) => panic!(
-            "Codex Error: {} Codex was: {:?}",
-            v, track.codec_params.codec
-        ),
-    }
+    let mut decoder = symphonia::default::get_codecs().make(&track.codec_params, &dec_opts)?;
 
     // The decode loop.
     let time_duration = time_base.calc_time(n_frames).seconds;
@@ -186,9 +169,7 @@ pub fn decode_samples_from_file(path: &Path, read_metadata: bool) -> (Vec<f32>, 
     }
 
     let mut timestamp_counter: u64 = 0;
-    let mut ret_samples: Vec<f32> = Vec::new();
-
-    let mut decoder = decoder_result.unwrap();
+    let mut ret_samples = Vec::with_capacity(n_frames as usize);
     loop {
         // Get the next packet from the media format.
         let packet = match format.next_packet() {
@@ -231,7 +212,7 @@ pub fn decode_samples_from_file(path: &Path, read_metadata: bool) -> (Vec<f32>, 
                 // Pop the old head of the metadata queue.
                 let _metadata = format.metadata().pop();
 
-                let md: MetadataRevision = _metadata.expect("MetadataRevision Failed");
+                let md: MetadataRevision = _metadata.with_context(|| "MetadataRevision Failed")?;
 
                 for tag in md.tags() {
                     log::info!("Key: {}, Value: {}", tag.key, tag.value);
@@ -257,31 +238,16 @@ pub fn decode_samples_from_file(path: &Path, read_metadata: bool) -> (Vec<f32>, 
         }
 
         // Decode the packet into audio samples.
-        match decoder.decode(&packet) {
-            Ok(_decoded) => {
-                match _decoded {
-                    AudioBufferRef::F32(buf) => {
-                        for &sample in buf.chan(0) {
-                            ret_samples.push(sample);
-                        }
-                    }
-                    _ => {
-                        // Repeat for the different sample formats.
-                        unimplemented!()
-                    }
+        let decoded = decoder.decode(&packet)?;
+        match decoded {
+            AudioBufferRef::F32(buf) => {
+                for &sample in buf.chan(0) {
+                    ret_samples.push(sample);
                 }
             }
-            Err(Error::IoError(_)) => {
-                // The packet failed to decode due to an IO error, skip the packet.
-                continue;
-            }
-            Err(Error::DecodeError(_)) => {
-                // The packet failed to decode due to invalid data, skip the packet.
-                continue;
-            }
-            Err(err) => {
-                // An unrecoverable error occured, halt decoding.
-                panic!("{}", err);
+            _ => {
+                // Repeat for the different sample formats.
+                anyhow::bail!("unimplemented");
             }
         }
     }
@@ -291,7 +257,7 @@ pub fn decode_samples_from_file(path: &Path, read_metadata: bool) -> (Vec<f32>, 
         time_base.calc_time(timestamp_counter).seconds
     );
 
-    (ret_samples, sample_rate)
+    Ok((ret_samples, sample_rate))
 }
 
 use sonogram::*;

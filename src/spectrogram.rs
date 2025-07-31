@@ -11,15 +11,13 @@ use crate::sound::decode_samples_only_from_file;
 
 pub const SPECTOGRAM_WIDTH: usize = 512;
 pub const SPECTOGRAM_HEIGHT: usize = 512;
-pub fn generate_spectogram(
-    path: &PathBuf,
-    num_spectogram_bins: usize,
-) -> Result<Spectrogram, SonogramError> {
-    let (samples, sample_rate) = decode_samples_only_from_file(&path.as_path());
+pub fn generate_spectogram(path: &PathBuf, num_spectogram_bins: usize) -> Result<Spectrogram> {
+    let (samples, sample_rate) = decode_samples_only_from_file(&path.as_path())?;
 
     let mut spectrobuilder = SpecOptionsBuilder::new(num_spectogram_bins)
         .load_data_from_memory_f32(samples, sample_rate)
-        .build()?;
+        .build()
+        .map_err(|e| anyhow::anyhow!("failed to build spectrogram: {:?}", e))?;
 
     let spectogram = spectrobuilder.compute();
 

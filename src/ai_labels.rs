@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use log::error;
 use sonogram::Spectrogram;
 use std::io::{Read, Write};
 use std::sync::Arc;
@@ -329,7 +330,11 @@ pub fn generate_zaoai_label_spectrograms(
                             log::info!("Saved spectrogram: {}", spectrogram_save_path.display());
                         }
                         Err(e) => {
-                            println!("{:?}", e);
+                            log::error!(
+                                "Failed to generate spectrogram on file:\n{}\nError: {:?}",
+                                path_buf.display(),
+                                e
+                            );
                         }
                     }
                 }
@@ -358,10 +363,17 @@ pub fn generate_zaoai_label_spectrograms_multithread(
 ) -> Result<()> {
     let extension_arc = Arc::new(spectrogram_file_extension.clone());
 
+    let mut count = 0;
+
     thread::scope(|scope| {
         let mut handles = vec![];
 
         for entry in list {
+            count += 1;
+
+            if count >= 10 {
+                break;
+            }
             let spectrogram_file_extension = Arc::clone(&extension_arc);
             match entry {
                 EntryKind::File(path_buf) => {
@@ -389,12 +401,20 @@ pub fn generate_zaoai_label_spectrograms_multithread(
                                             );
                                         }
                                         Err(e) => {
-                                            eprintln!("Spectrogram error: {:?}", e);
+                                            log::error!(
+                                                "Spectrogram error on file:\n{}\nError: {:?}",
+                                                path_buf.display(),
+                                                e
+                                            );
                                         }
                                     }
                                 }
                                 Err(e) => {
-                                    eprintln!("Label load error: {:?}", e);
+                                    log::error!(
+                                        "Label load error on file:\n{}\nError: {:?}",
+                                        path_buf.display(),
+                                        e
+                                    );
                                 }
                             }
                         }
