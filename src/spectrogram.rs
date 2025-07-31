@@ -7,12 +7,15 @@ use std::{
 
 use sonogram::{SonogramError, SpecOptionsBuilder, Spectrogram};
 
-use crate::sound::decode_samples_only_from_file;
+use crate::sound::{
+    decode_audio_with_ffmpeg_f32, decode_samples_audio_only_from_file,
+    decode_samples_only_from_file,
+};
 
 pub const SPECTOGRAM_WIDTH: usize = 512;
 pub const SPECTOGRAM_HEIGHT: usize = 512;
 pub fn generate_spectogram(path: &PathBuf, num_spectogram_bins: usize) -> Result<Spectrogram> {
-    let (samples, sample_rate) = decode_samples_only_from_file(&path.as_path())?;
+    let (samples, sample_rate) = decode_audio_with_ffmpeg_f32(&path.to_str().unwrap())?;
 
     let mut spectrobuilder = SpecOptionsBuilder::new(num_spectogram_bins)
         .load_data_from_memory_f32(samples, sample_rate)
@@ -50,18 +53,19 @@ pub fn load_spectrogram(
     out_width: &mut usize,
     out_height: &mut usize,
 ) -> Result<Spectrogram> {
-    let bytes = std::fs::read(&path)?;
+    let bytes = std::fs::read(&path).with_context(|| format!("{}", path.as_ref().display()))?;
     let (width, height, buffer): (usize, usize, Vec<f32>) =
         bincode::decode_from_slice(&bytes, BINCODE_CONFIG).map(|(v, _)| v)?;
 
-    let spectrogram = create_spectrogram_unsafe(buffer, width, height);
+    #[allow(unused_mut)]
+    let mut spectrogram = create_spectrogram_unsafe(buffer, width, height);
 
     // let mut test_path = path.as_ref().to_path_buf();
     // test_path.set_extension("png");
     // spectrogram.to_png(
     //     &test_path,
     //     sonogram::FrequencyScale::Log,
-    //     &mut ColourGradient::black_white_theme(),
+    //     &mut sonogram::ColourGradient::black_white_theme(),
     //     width,
     //     height,
     // )?;
