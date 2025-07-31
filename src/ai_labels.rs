@@ -239,6 +239,7 @@ pub fn collect_zaoai_labels_multithread(
     Ok(())
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct ZaoaiLabelsLoader {
     pub path_source: PathBuf,
     pub len: usize,
