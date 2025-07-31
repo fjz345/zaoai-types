@@ -332,7 +332,7 @@ pub fn generate_zaoai_label_spectrograms(
                         Err(e) => {
                             log::error!(
                                 "Failed to generate spectrogram on file:\n{}\nError: {:?}",
-                                path_buf.display(),
+                                zaoai_label.path.display(),
                                 e
                             );
                         }
@@ -403,7 +403,7 @@ pub fn generate_zaoai_label_spectrograms_multithread(
                                         Err(e) => {
                                             log::error!(
                                                 "Spectrogram error on file:\n{}\nError: {:?}",
-                                                path_buf.display(),
+                                                zaoai_label.path.display(),
                                                 e
                                             );
                                         }
@@ -429,7 +429,7 @@ pub fn generate_zaoai_label_spectrograms_multithread(
 
                     let handle = scope.spawn(move || {
                         let dir_list = list_dir(&path_buf, true)?;
-                        generate_zaoai_label_spectrograms(
+                        generate_zaoai_label_spectrograms_multithread(
                             &dir_list,
                             &spectrogram_file_extension,
                             dim,
